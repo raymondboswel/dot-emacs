@@ -1426,6 +1426,12 @@
     "A mode that activates custom-bindings."
     t nil custom-bindings-map)
   #+END_SRC
+** Bindings for projectile
+  #+BEGIN_SRC emacs-lisp
+  (projectile-mode +1)
+  (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)
+
+  #+END_SRC
 * License
 
   My Emacs configurations written in Org mode.
