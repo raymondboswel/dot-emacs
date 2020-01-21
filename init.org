@@ -375,6 +375,8 @@
    (when (version< emacs-version "24.4")
      (eval-after-load 'auto-compile
        '((auto-compile-on-save-mode 1))))  ; compile .el files on save
+   ;Show line numbers by default
+   (global-linum-mode t)
    #+END_SRC
 
 ** Typescript
@@ -1335,7 +1337,10 @@
   (defvar custom-bindings-map (make-keymap)
     "A keymap for custom bindings.")
   #+END_SRC
-
+** Bindings for drag-stuff
+  #+BEGIN_SRC emacs-lisp
+    (drag-stuff-define-keys)
+  #+END_SRC
 ** Bindings for [[https://github.com/abo-abo/define-word][define-word]]
 
   #+BEGIN_SRC emacs-lisp
