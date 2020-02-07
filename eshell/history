@@ -1,0 +1,24 @@
+ts-node day1.ts 
+ts-node day1.ts 
+ts-node day1.ts 
+ts-node day1.ts 
+ts-node --experimental-modules day1.ts 
+ts-node day1.ts 
+node -v
+cd ../
+l
+ls 
+cd day1/
+ts-node day1.ts 
+npm install
+ts-node day1.ts 
+ts-node day1.ts 
+ts-node day1.ts 
+ts-node day1.ts 
+ts-node day1.ts 
+ts-node day1.ts 
+ts-node day1.ts 
+ts-node day1.ts 
+ts-node day1.ts 
+npm i prettier
+yarn add prettier

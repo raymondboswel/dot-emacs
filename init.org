@@ -172,7 +172,6 @@
              company              ; Modular text completion framework
              company-lsp
              dart-mode            ; Basic dart syntax highlighting
-             dart-server          ; Supports dart analysis server for more info
              define-word          ; display the definition of word at point
              diminish             ; Diminished modes from modeline
              drag-stuff           ; Drag stuff around in Emacs
@@ -211,7 +210,6 @@
              try                  ; Try out Emacs packages
              lsp-mode             ; Language Server Protocol 
              lsp-ui
-
              speed-type           ; Typing tutor
              tide                 ; Typescript IDE 
              which-key)))         ; Display available keybindings in popup
@@ -431,7 +429,7 @@
     "/home/raymond/development/flutter/bin/cache/dart-sdk/bin/dart"
     "/home/raymond/development/flutter/bin/cache/dart-sdk/bin/snapshots/analysis_server.dart.snapshot"
     "--lsp"))
-    (setq lsp-dart-analysis-sdk-dir "~/bin/flutter/bin/cache/dart-sdk/")
+
 
     (add-hook 'dart-mode-hook #'lsp)
 

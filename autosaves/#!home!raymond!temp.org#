@@ -1,0 +1,14 @@
+The test flow is as follows:
+
+1) Log in with a user that has admin rights
+
+2) Invite a user with an email address that you receive emails from, e.g
+siba+1@fastcomm.com
+
+3) Wait for email invitation
+
+4) Create new account with siba+1@fastcomm.com
+
+5) Click on the Join via Token button in the Workspaces screen
+
+6) Verify that the chats functionality works.

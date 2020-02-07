@@ -1,0 +1,222 @@
+class User < ApplicationRecord
+  # Associations
+  belongs_to :account, optional: true
+  belongs_to :workspace
+  belongs_to :persona, optional: true
+  belongs_to :role
+  has_one :zaark_user, dependent: :destroy
+  has_one :zaark_domain, through: :zaark_user
+  has_many :devices, dependent: :destroy
+  has_many :created_channels, class_name: 'Channel', dependent: :destroy
+  has_many :channel_followers, dependent: :destroy
+  has_many :channels, through: :channel_followers
+  has_many :contents, dependent: :destroy
+  has_many :comments, dependent: :destroy
+  has_many :replies, dependent: :destroy
+  has_many :tasks, dependent: :destroy
+  has_many :reactions, dependent: :destroy
+  has_many :notification_subscriptions, dependent: :destroy
+  has_many :content_followers, dependent: :destroy
+  has_many :live_tracks, dependent: :destroy
+  has_many :live_track_users, dependent: :destroy
+  has_many :live_track_followers, through: :live_track_users, source: :user
+  has_many :live_track_settings, dependent: :destroy
+  has_many :webhooks, dependent: :nullify
+  has_many :themes, dependent: :destroy
+  has_many :responsible_users, dependent: :destroy
+  has_one :workspace_plan, through: :workspace
+
+  # Attribute Accessors
+  attr_accessor :auth_token, :new_registration
+
+  # Plugins
+  has_paper_trail
+
+  # Validations
+  validates :account_id, uniqueness: { scope: :workspace_id }, allow_nil: true
+  validates :invite_email, uniqueness: { scope: :workpsace_id }
+  validates :invite_number, uniqueness: { scope: :workspace_id }
+  if ENV['DEPLOYMENT_ENVIRONMENT'] == 'production'
+    validates :invite_number,
+              phone: {
+                possible: true, allow_blank: true, types: %i[voip mobile]
+              }
+  end
+  unless ENV['DEPLOYMENT_ENVIRONMENT'] == 'production'
+    validates :invite_number, custom_phone: true
+  end
+
+  # Callbacks
+  after_create :after_create
+  after_destroy :touch_self
+  after_update :calculate_workspace_plan_storage_limit
+  after_destroy :calculate_workspace_plan_storage_limit
+  after_update_commit :after_update_commit
+
+  # Scopes
+  scope :refine,
+        lambda { |params|
+          left_joins(:persona).by_search_string(params[:search]).by_date(
+            if params[:from_date].to_s.blank?
+              nil
+            else
+              Time.zone.parse(params[:from_date].to_s)
+            end,
+            if params[:to_date].to_s.blank?
+              nil
+            else
+              Time.zone.parse(params[:to_date].to_s)
+            end
+          )
+            .by_account_phone_number(params[:phone_numbers])
+            .by_zaark_uuid(params[:zaark_uuids])
+            .by_uuid(params[:uuids])
+            .by_active(params[:active])
+            .include_deleted(params[:include_deleted])
+        }
+  scope :include_deleted,
+        lambda { |include_deleted|
+          if include_deleted.blank?
+            all
+          else
+            if include_deleted.to_s == 'true' || include_deleted.to_s == '1'
+              with_deleted
+            else
+              all
+            end
+          end
+        }
+  scope :by_zaark_uuid,
+        lambda { |zaark_uuids|
+          if zaark_uuids.blank?
+            all
+          else
+            joins(:zaark_user).where(zaark_users: { zaark_uuid: zaark_uuids })
+          end
+        }
+  scope :by_uuid, ->(uuids) { uuids.blank? ? all : where(uuid: uuids) }
+  scope :by_account_phone_number,
+        lambda { |phone_numbers|
+          if phone_numbers.blank?
+            all
+          else
+            joins(:account).where(accounts: { phone_number: phone_numbers })
+          end
+        }
+  scope :by_workspace,
+        lambda { |workspace_uuids|
+          if workspace_uuids.blank?
+            all
+          else
+            joins(:workspace).where(workspaces: { uuid: workspace_uuids })
+          end
+        }
+  scope :by_search_string,
+        lambda { |keyword|
+          if keyword.blank?
+            all
+          else
+            where(
+              'personas.first_name LIKE ? OR personas.last_name LIKE ? OR personas.phone_number LIKE ? OR personas.email_address LIKE ? OR personas.display_name LIKE ?',
+              "%#{sanitize_sql_like(keyword)}%",
+              "%#{sanitize_sql_like(keyword)}%",
+              "%#{sanitize_sql_like(keyword)}%",
+              "%#{sanitize_sql_like(keyword)}%",
+              "%#{sanitize_sql_like(keyword)}%"
+            )
+          end
+        }
+  scope :by_date,
+        ->(from_date, to_date) { from_date(from_date).to_date(to_date) }
+  scope :to_date,
+        lambda { |to_date|
+          to_date.blank? ? all : where('users.updated_at < ?', to_date)
+        }
+  scope :from_date,
+        lambda { |from_date|
+          from_date.blank? ? all : where('users.updated_at > ?', from_date)
+        }
+  scope :by_active, ->(active) { active.blank? ? all : where(active: active) }
+  scope :by_active_subscriptions,
+        lambda { |subscription_object_type, subscription_object_id|
+          joins(:notification_subscriptions).where(
+            notification_subscriptions: {
+              subscription_object_type: subscription_object_type,
+              subscription_object_id: subscription_object_id
+            }
+          )
+            .where(
+            'notification_subscriptions.updated_at >= ?',
+            Time.current - NotificationSubscription::DEFAULT_VALID_TIME
+          )
+        }
+
+  def after_create
+    create_device
+  end
+
+  def after_update_commit
+    send_user_updated_notification
+    if deleted
+      channel_followers.destroy_all
+      content_followers.destroy_all
+      notification_subscriptions.destroy_all
+      devices.destroy_all
+    end
+  end
+
+  def create_device
+    Device.create!(user_id: id)
+  end
+
+  def super_admin?
+    StaticTypeHelper::RoleCache.model_by_id(role_id).reference ==
+      'super_admin'.freeze
+  end
+
+  def viewer?
+    StaticTypeHelper::RoleCache.model_by_id(role_id).reference ==
+      'viewer'.freeze
+  end
+
+  def admin?
+    %w[admin primary_owner].include?(
+      StaticTypeHelper::RoleCache.model_by_id(role_id).reference
+    )
+  end
+
+  def full_admin?
+    StaticTypeHelper::RoleCache.model_by_id(role_id).reference ==
+      'primary_owner'.freeze
+  end
+
+  def invited_via_email?
+    invite_email.present?
+  end
+
+  def highest_ranked_role(object_with_role)
+    if role_id.blank?
+      return StaticTypeHelper::RoleCache.model_by_reference('viewer'.freeze)
+    end
+    if object_with_role.blank?
+      return StaticTypeHelper::RoleCache.model_by_id(role_id)
+    end
+
+    objects_role =
+      StaticTypeHelper::RoleCache.model_by_id(object_with_role.role_id)
+    user_role = StaticTypeHelper::RoleCache.model_by_id(role_id)
+    user_role.rank.to_i > objects_role.rank.to_i ? user_role : objects_role
+  end
+
+  def touch_self
+    User.with_deleted.where(id: id).find_each(&:touch)
+  end
+
+  def send_user_updated_notification
+    UserNotificationWorker.perform_async('', id, id, 'user_updated')
+  end
+
+  def calculate_workspace_plan_storage_limit
+    workspace_plan.try(:trigger_recalculate_storage_limit)
+  end
+end

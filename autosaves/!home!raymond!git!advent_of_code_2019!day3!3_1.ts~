@@ -1,0 +1,1 @@
+import { wire1, wire2 } from "./day3_input";

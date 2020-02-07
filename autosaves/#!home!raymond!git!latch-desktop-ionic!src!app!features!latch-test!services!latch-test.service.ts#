@@ -1,0 +1,157 @@
+import { Injectable } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
+import { PlainHttp } from '@shared/services/plain-http';
+import { take, mergeMap } from 'rxjs/operators';
+import { TestStatus } from '../models/test-status';
+import { TringService } from '@app/features/main/services/tring.service';
+import { WorkspacesService } from '@app/features/workspaces/services/workspaces.service';
+import { AttachmentsApiService } from '@core/api-services/attachments-api/attachments-api.service';
+import { HttpHeaders } from '@angular/common/http';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class LatchTestService {
+  public zaarkRestStatus: BehaviorSubject<TestStatus> = new BehaviorSubject(
+    'pending'
+  );
+  public zaarkIMStatus: BehaviorSubject<TestStatus> = new BehaviorSubject(
+    'pending'
+  );
+  public fileUploadStatus: BehaviorSubject<TestStatus> = new BehaviorSubject(
+    'pending'
+  );
+  public fileDownloadStatus: BehaviorSubject<TestStatus> = new BehaviorSubject(
+    'pending'
+  );
+  private downloadUrl: string;
+
+  public testResult: any = {};
+  public testResultString: any;
+  public userAgent = '';
+
+  constructor(
+    private http: PlainHttp,
+    private tringService: TringService,
+    private workspacesService: WorkspacesService,
+    private attachmentsApiService: AttachmentsApiService
+  ) {}
+
+  reset() {
+    this.zaarkRestStatus.next('pending');
+    this.zaarkIMStatus.next('pending');
+    this.fileUploadStatus.next('pending');
+    this.fileDownloadStatus.next('pending');
+  }
+
+  async runTests() {
+    this.userAgent = navigator.userAgent;
+    await this.verifyFileUpload();
+    await this.verifyFileDownload();
+    await this.verifyZaarkRest();
+    await this.verifyZaarkIM();
+
+    this.testResult.userAgent = this.userAgent;
+    this.testResult.fileUploadStatus = this.fileUploadStatus.value;
+    this.testResult.fileDownloadStatus = this.fileUploadStatus.value;
+    this.testResult.zaarkIMStatus = this.zaarkIMStatus.value;
+    this.testResult.zaarkRestStatus = this.zaarkRestStatus.value;
+
+    this.testResultString = btoa(JSON.stringify(this.testResult));
+  }
+
+  verifyZaarkRest(): Promise<any> {
+    this.zaarkRestStatus.next('in_progress');
+    return new Promise(resolve => {
+      this.http
+        .get('https://as-qa.zaark.net/rest', {
+          headers: { 'Content-Type': 'text/plain' },
+          responseType: 'text'
+        })
+        .subscribe(
+          res => {
+            this.zaarkRestStatus.next('succeeded');
+            resolve();
+          },
+          e => {
+            this.zaarkRestStatus.next('failed');
+            resolve();
+          }
+        );
+    });
+  }
+
+  verifyZaarkIM(): Promise<any> {
+    this.zaarkIMStatus.next('in_progress');
+    let wsId;
+    this.workspacesService
+      .getSelectedWorkspaceId()
+      .pipe(take(1))
+      .subscribe(id => (wsId = id));
+    return new Promise(resolve => {
+      setTimeout(() => {
+        if (this.tringService.getTringWrapper(wsId).isConnected) {
+          this.zaarkIMStatus.next('succeeded');
+        } else {
+          this.zaarkIMStatus.next('failed');
+        }
+        resolve();
+      }, 1000);
+    });
+  }
+
+  async verifyFileUpload(): Promise<any> {
+    this.fileUploadStatus.next('in_progress');
+    const img = await this.http
+      .get('assets/images/latch.png', { responseType: 'arraybuffer' })
+      .toPromise();
+
+    const blob = new Blob([new Uint8Array(img)], { type: 'image/png' });
+
+    const options = {
+      headers: new HttpHeaders({
+        'Content-Type': 'image/png'
+      })
+    };
+
+    return new Promise(resolve => {
+      this.attachmentsApiService
+        .getPresignedPut()
+        .pipe(
+          mergeMap(presignedPut => {
+            this.downloadUrl = presignedPut.get_url;
+            return this.http.put(presignedPut.update_url, blob, options);
+          })
+        )
+        .subscribe(
+          res => {
+            this.fileUploadStatus.next('succeeded');
+            resolve();
+          },
+          err => {
+            this.fileUploadStatus.next('failed');
+            resolve();
+          }
+        );
+    });
+  }
+
+  verifyFileDownload(): Promise<any> {
+    this.fileDownloadStatus.next('in_progress');
+    return new Promise(resolve => {
+      this.http
+        .get(this.downloadUrl, { responseType: 'arraybuffer' })
+        .subscribe(
+          res => {
+            this.fileDownloadStatus.next('succeeded');
+            resolve();
+          },
+          err => {
+            console.log(err);
+            this.fileDownloadStatus.next('failed');
+            resolve();
+          }
+        );
+    });
+  }
+}

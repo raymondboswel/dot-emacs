@@ -1,0 +1,8 @@
+
+* Latch
+** DONE Archive fetching if only groups not working
+** TODO Filtering of threads not working
+** DONE Handling of invite message inconsistent
+** DONE Add service worker to latch
+
+** TODO Latch router guard runs before store init

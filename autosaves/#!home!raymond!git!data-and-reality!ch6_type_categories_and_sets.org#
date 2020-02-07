@@ -1,0 +1,26 @@
+* Type: a merging of ideas
+** Guidelines
+One common denominator is the notion of grouping; we assume that things can be
+divided in groups, where the groups are expected to satisfy a number of
+guidelines:
+
+  1.  The groups correspond to our intuitive ideas of what things are, i.e, their
+classification.
+  2.  The groups serve as the scopes over which naming conventions apply, i.e
+name syntaxes, uniqueness rules apply.
+  3.  The groups serve as unique scopes over which validity constraints apply.
+  4.  The groups correspond to the domains of relationships.
+  5.  Things don't move from one group to another.
+  6.  The groups are mutually exclusive (nothing belongs to more than one such
+group) - an enormously bad hangover from the record type heritage, but still
+required in almost all definitions
+
+In any discussion of type, it would be useful to establish which of these
+guidelines were to be assumed.
+
+** Conflicts
+Unfortunately, these guidelines are generally quite incompatible.
+
+* Extended Concepts
+** Arbitrary sets
+

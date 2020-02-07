@@ -1,0 +1,126 @@
+import { ModalController } from '@ionic/angular';
+import { LayoutService } from '@shared/services/layout.service';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  ChangeDetectionStrategy
+} from '@angular/core';
+import { ActivatedRoute, ParamMap } from '@angular/router';
+import { ChannelsService } from '../../services/channels.service';
+import { Observable, Subject } from 'rxjs';
+import { Channel } from '@shared/models/channels/channel';
+import { ChannelInfoComponent } from '../../components/channel-info/channel-info.component';
+import { takeUntil } from 'rxjs/operators';
+import { ChannelEditComponent } from '../../components/channel-edit/channel-edit.component';
+import { TaskListContainerComponent } from '@app/features/tasks/containers/task-list-container/task-list-container.component';
+import { ChannelType } from '@shared/enums/channel-type.enum';
+import { ChannelsAnalyticsService } from '../../../../shared/services/analytics/channels-analytics.service';
+
+@Component({
+  selector: 'app-channel-container',
+  templateUrl: './channel-container.component.html',
+  styleUrls: ['./channel-container.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+export class ChannelContainerComponent implements OnInit, OnDestroy {
+  channelId: string;
+  useMobileLayout$: Observable<boolean>;
+  layout: string;
+  selectedChannel$: Observable<Channel>;
+  selectedChannel: Channel;
+  channelInfoHidden: boolean;
+  destroyed$ = new Subject();
+  channelType = ChannelType;
+
+  constructor(
+    private route: ActivatedRoute,
+    private channelsService: ChannelsService,
+    private layoutService: LayoutService,
+    private modalController: ModalController,
+    private channelAnalyticsService: ChannelsAnalyticsService
+  ) {}
+
+  ngOnInit() {
+    this.layoutService.hide Tabs();
+    this.useMobileLayout$ = this.layoutService.useMobileLayout$;
+    this.channelInfoHidden = true;
+    this.layout = this.layoutService.getLayout();
+    this.route.paramMap.subscribe((params: ParamMap) => {
+      this.channelId = params.get('id');
+      if (this.channelId) {
+        this.channelsService.selectChannel(this.channelId);
+      }
+    });
+    this.selectedChannel$ = this.channelsService.getSelectedChannel();
+    this.selectedChannel$
+      .pipe(takeUntil(this.destroyed$))
+      .subscribe(channel => {
+        this.selectedChannel = channel;
+      });
+  }
+
+  ngOnDestroy() {
+    this.destroyed$.next();
+    this.destroyed$.complete();
+  }
+
+  async editChannel() {
+    const modal = await this.modalController.create({
+      id: 'channelEdit',
+      component: ChannelEditComponent,
+      cssClass: this.layoutService.useMobileLayout()
+        ? ''
+        : 'medium-modal-width',
+      componentProps: {
+        channel: this.selectedChannel,
+        isModal: true
+      }
+    });
+    return await modal.present();
+  }
+
+  async viewChannel() {
+    const modal = await this.modalController.create({
+      id: 'channelInfo',
+      component: ChannelInfoComponent,
+      componentProps: {
+        isModal: true,
+        channel: this.selectedChannel
+      }
+    });
+    return await modal.present();
+  }
+
+  toggleChannelInfoView() {
+    if (this.channelInfoHidden) {
+      this.channelAnalyticsService.channelInfoViewOpened();
+      this.channelInfoHidden = false;
+    } else {
+      this.channelInfoHidden = true;
+    }
+  }
+
+  async showTaskList() {
+    const modal = await this.modalController.create({
+      id: 'tasksList',
+      component: TaskListContainerComponent,
+      componentProps: {
+        channel: this.selectedChannel
+      }
+    });
+    return await modal.present();
+  }
+
+  showChannelControls() {
+    try {
+      return [
+        ChannelType.BUSINESS,
+        ChannelType.LEGAL_CASE,
+        ChannelType.LEGAL_DEAL
+      ].includes(this.selectedChannel.channelType);
+    } catch (e) {
+      return false;
+    }
+  }
+}
