@@ -447,11 +447,14 @@
 ** Dart
   #+BEGIN_SRC emacs-lisp
 
+    (setq company-lsp-cache-candidates t
+         company-lsp-filter-candidates t)
+
     ;(require 'lsp-mode)
-    (setq lsp-dart-server-command (list
-    "/home/raymond/development/flutter/bin/cache/dart-sdk/bin/dart"
-    "/home/raymond/development/flutter/bin/cache/dart-sdk/bin/snapshots/analysis_server.dart.snapshot"
-    "--lsp"))
+;    (setq lsp-dart-server-command (list
+;    "/home/raymond/development/flutter/bin/cache/dart-sdk/bin/dart"
+;    "/home/raymond/development/flutter/bin/cache/dart-sdk/bin/snapshots/analysis_server.dart.snapshot"
+;    "--lsp"))
 
 
     (add-hook 'dart-mode-hook #'lsp)
@@ -465,18 +468,22 @@
   #+END_SRC
 ** flutter
   #+BEGIN_SRC emacs-lisp
-    (require 'flutter)
+  (require 'flutter)
 
-    (defun flutter-run-on-all2 ()
-      (flutter-run "-d all"))
+  (defun flutter-inspect-chrome ()
+    (interactive)
+    (flutter-inspector "-d chrome"))
 
-    (defun flutter-run-all-or-hot-reload2 ()
-      (interactive)
-      (if (flutter--running-p)
-        (flutter-hot-reload)
-        (flutter-run "-d all")))
+  (defun flutter-run-on-all2 ()
+    (flutter-run "-d all"))
 
-    
+  (defun flutter-run-all-or-hot-reload2 ()
+    (interactive)
+    (if (flutter--running-p)
+      (flutter-hot-reload)
+      (flutter-run "-d all")))
+
+
   #+END_SRC
 
   #+RESULTS:
@@ -1530,8 +1537,13 @@
   #+END_SRC
 ** Bindings for tide
   #+BEGIN_SRC emacs-lisp
-      (define-key custom-bindings-map (kbd "C-t f")         'tide-fix)
+  (define-key custom-bindings-map (kbd "C-t f")         'tide-fix)
   #+END_SRC 
+** Bindings for lsp-ui
+  #+BEGIN_SRC emacs-lisp
+  (define-key custom-bindings-map (kbd "C-l a") 'lsp-ui-sideline-apply-code-actions)
+  #+END_SRC 
+
 * License
 
   My Emacs configurations written in Org mode.
